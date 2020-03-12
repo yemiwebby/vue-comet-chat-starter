@@ -48,12 +48,50 @@
                                         <p><span>{{ message.sender.uid }}</span><br>{{ message.data.text }}</p>
                                     </div>
                                 </div>
-                              </div>
+                            </div>
 
 
                             <div class="outgoing-chats" v-else>
-                                  <div class="outgoing-chats-msg">
+                                  <div class="outgoing-chats-msg" style="position: relative;">
                                       <p>{{ message.data.text }}</p>
+
+                                      <div v-if="message.sent" style="position: absolute; right: 0; bottom: 0;padding: 10px 10px 0 0;">
+                                        <svg xmlns="http://www.w3.org/2000/svg" x="0px" y="0px" width="23" height="23" viewBox="0 0 226 226" style=" fill:#000000;">
+                                          <g fill="none" fill-rule="nonzero" stroke="none" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="10" stroke-dasharray
+                                              stroke-dashoffset="0" font-family="none" font-weight="none" font-size="none" text-anchor="none" style="mix-blend-mode: normal">
+                                            <path d="M0,226v-226h226v226z" fill="none" />
+                                            <g fill="#2ecc71">
+                                              <path d="M212.68483,42.375l-109.1015,109.90192l-43.17071,-43.98525l-13.32929,13.43758l56.5,57.18742l122.41667,-123.396z"/>
+                                            </g>
+                                          </g>
+                                        </svg>
+                                      </div>
+                                      <div v-if="message.delivered" style="position: absolute; right: 0; bottom: 0;padding: 10px 10px 0 0;">
+                                        <svg xmlns="http://www.w3.org/2000/svg" x="0px" y="0px" width="23" height="23" viewBox="0 0 226 226" style=" fill:#000000;">
+                                          <g fill="none" fill-rule="nonzero" stroke="none" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="10" stroke-dasharray
+                                              stroke-dashoffset="0" font-family="none" font-weight="none" font-size="none" text-anchor="none" style="mix-blend-mode: normal">
+                                              <path d="M0,226v-226h226v226z" fill="none" />
+                                            <g fill="#2ecc71">
+                                              <path d="M212.68483,42.375l-109.1015,109.90192l-43.17071,-43.98525l-13.32929,13.43758l56.5,57.18742l122.41667,-123.396z"/>
+                                              <path d="M165.6015,42.375l-109.1015,109.90192l-43.17071,-43.98525l-13.32929,13.43758l56.5,57.18742l122.41667,-123.396z"/>
+                                            </g>
+                                          </g>
+                                        </svg>
+                                      </div>                                      
+
+                                      <div v-else-if="message.read" style="position: absolute; right: 0; bottom: 0;padding: 10px 10px 0 0;">
+                                         <svg xmlns="http://www.w3.org/2000/svg" x="0px" y="0px" width="23" height="23" viewBox="0 0 226 226" style=" fill:#000000;">
+                                          <g fill="none" fill-rule="nonzero" stroke="none" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="10" stroke-dasharray
+                                            stroke-dashoffset="0" font-family="none" font-weight="none" font-size="none" text-anchor="none" style="mix-blend-mode: normal">
+                                            <path d="M0,226v-226h226v226z" fill="none" />
+                                            <g>
+                                              <path d="M212.68483,42.375l-109.1015,109.90192l-43.17071,-43.98525l-13.32929,13.43758l56.5,57.18742l122.41667,-123.396z" fill="#0c9eff"/>
+                                              <path d="M165.6015,42.375l-109.1015,109.90192l-43.17071,-43.98525l-13.32929,13.43758l56.5,57.18742l122.41667,-123.396z" fill="#06a3ff"/>
+                                            </g>
+                                          </g>
+                                        </svg>
+                                      </div>
+
                                   </div>
 
                                   <div class="outgoing-chats-img">
@@ -137,12 +175,35 @@ export default {
           // Handle text message
           console.log(this.groupMessages);
           this.groupMessages = [...this.groupMessages, textMessage];
-          // console.log("avatar", textMessage.sender.avatar)
+          CometChat.markAsRead(textMessage.id, textMessage.receiverId, textMessage.receiverType);
           this.loadingMessages = false;
           this.$nextTick(() => {
             this.scrollToBottom();
           });
-        }
+        },
+        onMessagesDelivered: messageReceipt => {
+          console.log("MessageDeliverd", { messageReceipt });
+
+          const content = this.groupMessages.map(message => {
+            if (message.id === messageReceipt.messageId) {
+              return {...message, delivered: true, read: false, sent: false}
+            }
+            return message;
+          });
+          this.groupMessages = content;
+          CometChat.markAsRead(messageReceipt.messageId, messageReceipt.receiver, messageReceipt.receiverType);
+        },
+        onMessagesRead: messageReceipt => {
+          console.log("MessageRead", { messageReceipt });
+
+          const updatedContent = this.groupMessages.map(message => {
+            if (message.id === messageReceipt.messageId) {
+              return {...message, read: true, delivered: false, sent: false}
+            }
+            return message;
+          });
+          this.groupMessages = updatedContent;
+        } 
       })
     );
   },
@@ -185,7 +246,8 @@ export default {
           this.chatMessage = "";
           this.sendingMessage = false;
           // Text Message Sent Successfully
-          this.groupMessages = [...globalContext.groupMessages, message];
+          const newMessage = {...message, read: false, delivered: false, sent: true}
+          this.groupMessages = [...globalContext.groupMessages, newMessage];
           this.$nextTick(() => {
             this.scrollToBottom();
           });
